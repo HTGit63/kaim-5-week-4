@@ -1,0 +1,21 @@
+# KAIM 5 - Week 4 interim output ignore rules
+
+# Ignore all processed and raw data
+preprocessing/processed_*.json
+preprocessing/raw_messages_*.json
+
+# Ignore labeled data (unless versioned)
+labeling/labeled_data.conll.txt
+labeling/*.conll
+labeling/*.pyc
+
+# Ignore virtual environments and system files
+.venv/
+__pycache__/
+*.pyc
+*.log
+*.DS_Store
+
+# Ignore backup/swap files
+*~
+*.swp
