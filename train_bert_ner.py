@@ -15,7 +15,11 @@ DATA_PATH  = str((Path(__file__).parent / "labeling" / "labeled_data.conll.txt")
 OUTPUT_DIR = "models/bert_ner"
 
 # Load & split
-raw = load_dataset("conll2003", data_files={"train": DATA_PATH}, split="train", trust_remote_code=True)
+raw = load_dataset(
+    "conll2003",
+    data_files={"train": DATA_PATH},
+    split="train"
+)
 splits = raw.train_test_split(test_size=0.1)
 dataset = DatasetDict({"train": splits["train"], "eval": splits["test"]})
 
