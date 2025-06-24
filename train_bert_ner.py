@@ -19,7 +19,7 @@ MODEL_NAME = "bert-base-multilingual-cased"
 DATA_PATH = Path(__file__).parent / "labeling" / "labeled_data.conll.txt"
 OUTPUT_DIR = Path("models") / "bert_ner"
 
-# 1. Manual CoNLL reader
+# 1. Read CoNLL data
 
 def read_conll(path: Path):
     tokens_batch, tags_batch = [], []
@@ -42,16 +42,19 @@ def read_conll(path: Path):
         if tokens:
             tokens_batch.append(tokens)
             tags_batch.append(tags)
-    return {"tokens": tokens_batch, "ner_tags": tags_batch}
+    return tokens_batch, tags_batch
 
-# 2. Load raw data and extract label list
-raw_dict = read_conll(DATA_PATH)
-# unique labels (preserve order O, then others)
-all_tags = list(dict.fromkeys(chain.from_iterable(raw_dict["ner_tags"])))
-labels = all_tags
+# Load raw
+tokens_batch, tags_batch = read_conll(DATA_PATH)
 
-# 3. Create Hugging Face Dataset and split
-full_dataset = Dataset.from_dict(raw_dict)
+# 2. Build label list: O + B- + I- for each entity type
+raw_tags = set(chain.from_iterable(tags_batch))
+entity_types = sorted({tag.split('-',1)[1] for tag in raw_tags if tag != 'O'})
+labels = ['O'] + [f'B-{et}' for et in entity_types] + [f'I-{et}' for et in entity_types]
+
+# 3. Create Dataset and split
+data_dict = {"tokens": tokens_batch, "ner_tags": tags_batch}
+full_dataset = Dataset.from_dict(data_dict)
 splits = full_dataset.train_test_split(test_size=0.1, seed=42)
 dataset = DatasetDict({"train": splits["train"], "eval": splits["test"]})
 
@@ -85,9 +88,9 @@ def tokenize_and_align(examples):
                 tag = tag_seq[idx]
                 if tag.startswith("B-"):
                     new_tag = "I-" + tag.split("-",1)[1]
-                    aligned.append(labels.index(new_tag))
                 else:
-                    aligned.append(labels.index(tag))
+                    new_tag = tag
+                aligned.append(labels.index(new_tag))
             prev_idx = idx
         batch_labels.append(aligned)
     tokenized["labels"] = batch_labels
