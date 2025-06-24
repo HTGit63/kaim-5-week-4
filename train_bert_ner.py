@@ -48,6 +48,8 @@ def read_conll(path: Path):
 
 # 2. Load data and split
 raw_dict = read_conll(DATA_PATH)
+all_tags = { tag for seq in raw_dict["ner_tags"] for tag in seq }
+labels   = sorted(all_tags)
 full_dataset = Dataset.from_dict(raw_dict)
 splits = full_dataset.train_test_split(test_size=0.1, seed=42)
 dataset = DatasetDict({"train": splits["train"], "eval": splits["test"]})
