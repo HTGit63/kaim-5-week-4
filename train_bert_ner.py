@@ -1,6 +1,9 @@
+#!/usr/bin/env python3
+
 import os
 import numpy as np
 from pathlib import Path
+from itertools import chain
 from datasets import Dataset, DatasetDict
 from transformers import (
     AutoTokenizer,
@@ -19,10 +22,6 @@ OUTPUT_DIR = Path("models") / "bert_ner"
 # 1. Manual CoNLL reader
 
 def read_conll(path: Path):
-    """
-    Reads a CoNLL-style file and returns a dict with 'tokens' and 'ner_tags'.
-    Each sentence is separated by a blank line.
-    """
     tokens_batch, tags_batch = [], []
     tokens, tags = [], []
     with path.open(encoding='utf-8') as f:
@@ -36,35 +35,36 @@ def read_conll(path: Path):
             else:
                 parts = line.split()
                 if len(parts) != 2:
-                    continue  # skip malformed lines
+                    continue
                 tok, tag = parts
                 tokens.append(tok)
                 tags.append(tag)
-        # catch last sentence
         if tokens:
             tokens_batch.append(tokens)
             tags_batch.append(tags)
     return {"tokens": tokens_batch, "ner_tags": tags_batch}
 
-# 2. Load data and split
+# 2. Load raw data and extract label list
 raw_dict = read_conll(DATA_PATH)
-all_tags = { tag for seq in raw_dict["ner_tags"] for tag in seq }
-labels   = sorted(all_tags)
+# unique labels (preserve order O, then others)
+all_tags = list(dict.fromkeys(chain.from_iterable(raw_dict["ner_tags"])))
+labels = all_tags
+
+# 3. Create Hugging Face Dataset and split
 full_dataset = Dataset.from_dict(raw_dict)
 splits = full_dataset.train_test_split(test_size=0.1, seed=42)
 dataset = DatasetDict({"train": splits["train"], "eval": splits["test"]})
 
-# 3. Labels
-labels = dataset["train"].features["ner_tags"].feature.names
-
-# 4. Tokenizer & Model
+# 4. Prepare output directory
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# 5. Tokenizer & Model
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForTokenClassification.from_pretrained(
     MODEL_NAME, num_labels=len(labels)
 )
 
-# 5. Tokenize & align labels
+# 6. Tokenize & align labels
 
 def tokenize_and_align(examples):
     tokenized = tokenizer(
@@ -72,51 +72,51 @@ def tokenize_and_align(examples):
         truncation=True, padding="max_length", max_length=128
     )
     word_ids = tokenized.word_ids()
-    all_labels = []
-    for label_seq in examples["ner_tags"]:
-        padded_labels = []
-        prev_word_idx = None
-        for word_idx in word_ids:
-            if word_idx is None or word_idx >= len(label_seq):
-                padded_labels.append(-100)
-            elif word_idx != prev_word_idx:
-                padded_labels.append(label_seq[word_idx])
+    batch_labels = []
+    for tag_seq in examples["ner_tags"]:
+        aligned = []
+        prev_idx = None
+        for idx in word_ids:
+            if idx is None or idx >= len(tag_seq):
+                aligned.append(-100)
+            elif idx != prev_idx:
+                aligned.append(labels.index(tag_seq[idx]))
             else:
-                tag = labels[label_seq[word_idx]]
+                tag = tag_seq[idx]
                 if tag.startswith("B-"):
-                    new_tag = "I-" + tag.split("-", 1)[1]
-                    padded_labels.append(labels.index(new_tag))
+                    new_tag = "I-" + tag.split("-",1)[1]
+                    aligned.append(labels.index(new_tag))
                 else:
-                    padded_labels.append(label_seq[word_idx])
-            prev_word_idx = word_idx
-        all_labels.append(padded_labels)
-    tokenized["labels"] = all_labels
+                    aligned.append(labels.index(tag))
+            prev_idx = idx
+        batch_labels.append(aligned)
+    tokenized["labels"] = batch_labels
     return tokenized
 
 tokenized_datasets = dataset.map(
     tokenize_and_align, batched=True, remove_columns=["tokens", "ner_tags"]
 )
 
-# 6. Data collator
+# 7. Data collator
 collator = DataCollatorForTokenClassification(tokenizer)
 
-# 7. Metrics
+# 8. Metrics
 
 def compute_metrics(p):
-    preds, labels_id = np.argmax(p.predictions, axis=-1), p.label_ids
+    preds, true = np.argmax(p.predictions, axis=-1), p.label_ids
     true_preds, true_labels = [], []
-    for pred_row, label_row in zip(preds, labels_id):
-        pr, lb = [], []
+    for pred_row, label_row in zip(preds, true):
+        p_seq, l_seq = [], []
         for p_, l_ in zip(pred_row, label_row):
             if l_ != -100:
-                pr.append(labels[p_])
-                lb.append(labels[l_])
-        true_preds.append(pr)
-        true_labels.append(lb)
+                p_seq.append(labels[p_])
+                l_seq.append(labels[l_])
+        true_preds.append(p_seq)
+        true_labels.append(l_seq)
     print(classification_report(true_labels, true_preds, digits=4))
     return {"f1": f1_score(true_labels, true_preds)}
 
-# 8. Training arguments
+# 9. Training arguments
 args = TrainingArguments(
     output_dir=str(OUTPUT_DIR),
     num_train_epochs=3,
@@ -130,7 +130,7 @@ args = TrainingArguments(
     save_total_limit=2
 )
 
-# 9. Trainer
+# 10. Trainer setup
 trainer = Trainer(
     model=model,
     args=args,
@@ -141,11 +141,9 @@ trainer = Trainer(
     compute_metrics=compute_metrics
 )
 
-# 10. Train & evaluate
+# 11. Train, evaluate, and save
 trainer.train()
 metrics = trainer.evaluate()
-
-# 11. Save outputs
 trainer.save_model(str(OUTPUT_DIR))
 with open("metrics_bert.md", "w", encoding="utf-8") as f:
     f.write("## BERT Multilingual NER Metrics\n\n")
