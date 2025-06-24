@@ -1,5 +1,14 @@
 # ingestion/telegram_fetcher.py
 
+"""
+Fetch recent messages from configured Telegram channels using Telethon.
+Loads API credentials from .env, connects (interactive login if needed), iterates channels,
+saves raw JSON of messages (id, date, sender, text, channel) under preprocessing/.
+Usage:
+    python ingestion/telegram_fetcher.py
+"""
+
+
 import os
 import json
 from datetime import datetime

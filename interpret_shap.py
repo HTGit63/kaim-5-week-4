@@ -1,4 +1,13 @@
-#!/usr/bin/env python3
+
+"""
+Compute leave-one-word-out importances for sample Amharic sentences.
+For each sentence: split on whitespace, remove each word in turn, run model to get 'score'
+(sum of max logits over tokens), measure delta from baseline. Print top tokens by Δscore.
+Usage:
+    python interpret_shap.py
+"""
+
+
 import torch
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 import numpy as np

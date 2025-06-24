@@ -1,4 +1,15 @@
-#!/usr/bin/env python3
+
+"""
+Fine-tune DistilBERT multilingual for Amharic NER.
+Loads local CoNLL file (labeling/labeled_data.conll.txt), splits train/eval 90/10,
+tokenizes with `is_split_into_words=True`, aligns BIO tags, trains for N epochs,
+evaluates (precision/recall/F1 via seqeval), saves model under models/distilbert_ner/,
+writes evaluation_report.md.
+Usage:
+    python train_ner.py
+"""
+
+
 import os
 import numpy as np
 from pathlib import Path

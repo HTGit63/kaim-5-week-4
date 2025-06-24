@@ -1,4 +1,16 @@
-#!/usr/bin/env python3
+
+"""
+Orchestrate full pipeline: ingestion → preprocessing → produce final_dataset.json.
+Usage:
+    python run_pipeline.py
+Steps:
+ 1. Run telegram_fetcher to fetch raw JSON
+ 2. Run preprocess to clean/tokenize
+ 3. Aggregate processed files into final_dataset.json
+Logs counts at each step.
+"""
+
+
 import subprocess
 import logging
 import sys

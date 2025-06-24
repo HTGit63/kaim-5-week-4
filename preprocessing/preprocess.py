@@ -1,5 +1,17 @@
 # preprocessing/preprocess.py
 
+"""
+Normalize and clean raw Telegram messages for Amharic NER.
+Find latest raw JSON in this folder, apply:
+ - Amharic-specific normalization (strip diacritics, convert Ethiopian numerals)
+ - Text cleaning (remove URLs, collapse whitespace)
+ - Simple tokenization (split on space)
+Skip empty messages, then save processed JSON: processed_<ts>.json alongside this script.
+Usage:
+    python preprocessing/preprocess.py
+"""
+
+
 import re
 import json
 from pathlib import Path

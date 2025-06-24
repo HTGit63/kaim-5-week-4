@@ -1,4 +1,14 @@
-#!/usr/bin/env python3
+
+"""
+Compute posting frequency and average price per Telegram channel; derive normalized lending score.
+Loads final_dataset.json (expects 'channel', 'date', and either 'text' or 'tokens'), reconstructs text if needed,
+parses date to weeks, counts posts/week, extracts price via regex for '<amount> ብር', computes avg_price per channel,
+normalizes metrics and combines with weights to produce 'lending_score'. Outputs analysis/vendor_scorecard.csv.
+Usage:
+    python analysis/vendor_scorecard.py
+"""
+
+
 import json
 import re
 from pathlib import Path
