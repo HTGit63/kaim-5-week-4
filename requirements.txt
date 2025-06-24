@@ -1,4 +1,9 @@
-telethon         # for Telegram API access
-pandas           # for data structuring
-python-docx      # if you’ll parse docs
-regex            # for advanced text cleaning
+telethon
+python-dotenv
+transformers
+datasets
+seqeval
+accelerate
+pandas
+numpy
+shap
