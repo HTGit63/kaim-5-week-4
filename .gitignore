@@ -19,3 +19,11 @@ __pycache__/
 # Ignore backup/swap files
 *~
 *.swp
+
+# Environment and session files
+.env
+*.session
+kaim_week4.session*
+
+# Do not commit large model weights locally
+models/
